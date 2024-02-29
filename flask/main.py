@@ -1,48 +1,99 @@
-from flask import Flask
+from flask import Flask, render_template, redirect
 from data import db_session
 from data.users import User
 from data.jobs import Jobs
-
+from forms.user import RegisterForm, LoginForm
+from forms.job import JobsForm
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
+login_manager = LoginManager()
+login_manager.init_app(app)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 
 
-def main():
-    db_session.global_init("db/mars2.db")
-    # app.run()
-    user1 = User()
-    user1.surname = "Scott"
-    user1.name = "Ridley"
-    user1.age = 21
-    user1.position = "captain"
-    user1.speciality = "research engineer"
-    user1.address = "module_1"
-    user1.email = "scott_chief@mars.org"
-    user1.hashed_password = "cap"
-    user2 = User()
-    user2.surname = "John"
-    user2.name = "Cook"
-    user2.age = 22
-    user2.position = "cook"
-    user2.speciality = "cook"
-    user2.address = "module_3"
-    user2.email = "john_cooker@mars.org"
-    user2.hashed_password = "food"
-    user3 = User()
-    user3.surname = "Lisa"
-    user3.name = "Moner"
-    user3.age = 20
-    user3.position = "nurse"
-    user3.speciality = "practitian doctor"
-    user3.address = "module_2"
-    user3.email = "lisa1234@mars.org"
-    user3.hashed_password = "h1e1l1p1p1l1a1n1e1t"
+@login_manager.user_loader
+def load_user(user_id):
     db_sess = db_session.create_session()
-    db_sess.add(user1)
-    db_sess.add(user2)
-    db_sess.add(user3)
-    db_sess.commit()
+    return db_sess.query(User).get(user_id)
+
+
+@app.route("/")
+def index():
+    db_sess = db_session.create_session()
+    jobs = db_sess.query(Job).all()
+    print(jobs)
+    return render_template("index.html", jobs=jobs)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        db_sess = db_session.create_session()
+        user = db_sess.query(User).filter(User.email == form.email.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember_me.data)
+            return redirect("/")
+        return render_template('login.html',
+                               message="Неправильный логин или пароль",
+                               form=form)
+    return render_template('login.html', title='Авторизация', form=form)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def reqister():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        if form.password.data != form.password_again.data:
+            return render_template('register.html', title='Регистрация',
+                                   form=form,
+                                   message="Пароли не совпадают")
+        db_sess = db_session.create_session()
+        if db_sess.query(User).filter(User.email == form.email.data).first():
+            return render_template('register.html', title='Регистрация',
+                                   form=form,
+                                   message="Такой пользователь уже есть")
+        user = User(
+            name=form.name.data,
+            surname=form.surname.data,
+            email=form.email.data,
+        )
+        user.set_password(form.password.data)
+        db_sess.add(user)
+        db_sess.commit()
+        return redirect('/')
+    return render_template('register.html', title='Регистрация', form=form)
+
+
+@app.route('/news',  methods=['GET', 'POST'])
+@login_required
+def add_news():
+    form = JobsForm()
+    if form.validate_on_submit():
+        db_sess = db_session.create_session()
+        news = Job()
+        news.title = form.title.data
+        news.content = form.content.data
+        news.is_private = form.is_private.data
+        current_user.news.append(news)
+        db_sess.merge(current_user)
+        db_sess.commit()
+        return redirect('/')
+    return render_template('addjob.html', title='Добавление новости',
+                           form=form)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect("/")
+
+
+def main():
+    db_session.global_init("db/mars_explorer.db")
+    app.run()
 
 
 if __name__ == '__main__':
