@@ -6,6 +6,7 @@ from forms.user import RegisterForm, LoginForm
 from forms.job import JobsForm
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
+
 app = Flask(__name__)
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -58,6 +59,7 @@ def reqister():
             name=form.name.data,
             surname=form.surname.data,
             email=form.email.data,
+            #  hashed_password=form.password.data
         )
         user.set_password(form.password.data)
         db_sess.add(user)
