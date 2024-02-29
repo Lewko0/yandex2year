@@ -21,7 +21,7 @@ def load_user(user_id):
 @app.route("/")
 def index():
     db_sess = db_session.create_session()
-    jobs = db_sess.query(Job).all()
+    jobs = db_sess.query(Jobs).all()
     print(jobs)
     return render_template("index.html", jobs=jobs)
 
@@ -66,18 +66,19 @@ def reqister():
     return render_template('register.html', title='Регистрация', form=form)
 
 
-@app.route('/news',  methods=['GET', 'POST'])
+@app.route('/addjob',  methods=['GET', 'POST'])
 @login_required
 def add_news():
     form = JobsForm()
     if form.validate_on_submit():
         db_sess = db_session.create_session()
-        news = Job()
-        news.title = form.title.data
-        news.content = form.content.data
-        news.is_private = form.is_private.data
-        current_user.news.append(news)
-        db_sess.merge(current_user)
+        job = Jobs()
+        job.title = form.title.data
+        job.team_leader = form.leader.data
+        job.work_size = form.work_size.data
+        job.collaborators = form.collaborators.data
+        job.is_finished = form.is_finish.data
+        db_sess.add(job)
         db_sess.commit()
         return redirect('/')
     return render_template('addjob.html', title='Добавление новости',
